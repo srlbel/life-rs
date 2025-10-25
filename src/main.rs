@@ -1,8 +1,9 @@
+use clap::Parser;
+use cli::Args;
 use rand::Rng;
 use std::{thread, time::Duration};
 
-const W: usize = 200;
-const H: usize = 100;
+mod cli;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Cell {
@@ -19,17 +20,20 @@ impl Cell {
     }
 }
 
+#[derive(Clone)]
 struct GameOfLife {
-    grid: [[Cell; W]; H],
+    grid: Vec<Vec<Cell>>,
+    height: usize,
+    width: usize,
 }
 
 impl GameOfLife {
-    fn new() -> Self {
-        let mut grid = [[Cell::Dead; W]; H];
+    fn new(height: usize, width: usize) -> Self {
+        let mut grid = vec![vec![Cell::Dead; width]; height];
         let mut rng = rand::thread_rng();
 
-        for y in 0..H {
-            for x in 0..W {
+        for y in 0..height {
+            for x in 0..height {
                 grid[y][x] = if rng.gen_bool(0.3) {
                     Cell::Alive
                 } else {
@@ -38,14 +42,18 @@ impl GameOfLife {
             }
         }
 
-        Self { grid }
+        Self {
+            grid,
+            height,
+            width,
+        }
     }
 
     fn update(&mut self) {
-        let mut new_grid = self.grid;
+        let mut new_grid = self.grid.clone();
 
-        for y in 0..H {
-            for x in 0..W {
+        for y in 0..self.height {
+            for x in 0..self.width {
                 let alive_neighbors = self.get_neighbours(x, y);
                 let current = self.grid[y][x];
 
@@ -57,11 +65,13 @@ impl GameOfLife {
             }
         }
 
-        self.grid = new_grid;
+        self.grid = new_grid.to_vec();
     }
 
     fn get_neighbours(&self, x: usize, y: usize) -> usize {
         let mut count = 0;
+        let h = self.height as isize;
+        let w = self.width as isize;
 
         for dy in [-1, 0, 1] {
             for dx in [-1, 0, 1] {
@@ -72,7 +82,7 @@ impl GameOfLife {
                 let nx = x as isize + dx;
                 let ny = y as isize + dy;
 
-                if nx >= 0 && nx < W as isize && ny >= 0 && ny < H as isize {
+                if nx >= 0 && nx < w && ny >= 0 && ny < h {
                     if self.grid[ny as usize][nx as usize] == Cell::Alive {
                         count += 1;
                     }
@@ -95,11 +105,15 @@ impl GameOfLife {
 }
 
 fn main() {
-    let mut game = GameOfLife::new();
+    let args = Args::parse();
+    let height = args.height;
+    let width = args.width;
+
+    let mut game = GameOfLife::new(height, width);
 
     loop {
         game.display();
         game.update();
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(args.time));
     }
 }
